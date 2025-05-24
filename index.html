@@ -197,45 +197,53 @@
     <tbody></tbody>
   </table>
 
-  <script>
-    let data = [];
-    let projectChart, filteredChart, lineChart;
+<script>
+  // ✅ Fix: Add the missing formatDate function
+  function formatDate(dateString) {
+    if (!dateString) return "";
+    const d = new Date(dateString);
+    return d.toISOString().split("T")[0]; // Output: 'YYYY-MM-DD'
+  }
 
-    window.onload = function () {
-      const urlParams = new URLSearchParams(window.location.search);
-      const sheetURL = urlParams.get("sheet");
+  let data = [];
+  let projectChart, filteredChart, lineChart;
 
-      if (!sheetURL) {
-        alert("Missing ?sheet= URL. Please pass your Apps Script Web App URL.");
-        return;
-      }
+  window.onload = function () {
+    const urlParams = new URLSearchParams(window.location.search);
+    const sheetURL = urlParams.get("sheet");
 
-      fetch(sheetURL)
-        .then(res => res.json())
-        .then(array => {
-          const [headers, ...rows] = array;
-          data = rows.map(row => {
-            const obj = {};
-            headers.forEach((h, i) => obj[h] = row[i]);
-            return obj;
-          });
+    if (!sheetURL) {
+      alert("Missing ?sheet= URL. Please pass your Apps Script Web App URL.");
+      return;
+    }
 
-          data = data.map(row => ({
-            ...row,
-            "Latest PDC": row["Latest PDC"] ? formatDate(row["Latest PDC"]) : "",
-            "Completed on": row["Completed on"] ? formatDate(row["Completed on"]) : ""
-          }));
-
-          drawInitialProjectChart();
-          updateFilterSelect();
-          updateProjectDetailsTable(data);
-        })
-        .catch(err => {
-          console.error("Failed to fetch sheet data:", err);
-          alert("Failed to load data from Google Sheet.");
+    fetch(sheetURL)
+      .then(res => res.json())
+      .then(array => {
+        const [headers, ...rows] = array;
+        data = rows.map(row => {
+          const obj = {};
+          headers.forEach((h, i) => obj[h] = row[i]);
+          return obj;
         });
-    };
-  </script>
+
+        data = data.map(row => ({
+          ...row,
+          "Latest PDC": row["Latest PDC"] ? formatDate(row["Latest PDC"]) : "",
+          "Completed on": row["Completed on"] ? formatDate(row["Completed on"]) : ""
+        }));
+
+        drawInitialProjectChart();
+        updateFilterSelect();
+        updateProjectDetailsTable(data);
+      })
+      .catch(err => {
+        console.error("Failed to fetch sheet data:", err);
+        alert("Failed to load data from Google Sheet.");
+      });
+  };
+</script>
+
 
 </body>
 </html>
