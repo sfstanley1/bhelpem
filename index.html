@@ -3,193 +3,70 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Excel Dashboard - Remote URL</title>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <title>Excel Data Dashboard</title>
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
-      background: #f9f9f9;
-    }
-    .controls {
-      margin-bottom: 20px;
-    }
-    canvas {
-      background: white;
-      border: 1px solid #ccc;
-      margin-bottom: 20px;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background: white;
-    }
-    th, td {
-      border: 1px solid #ccc;
-      padding: 8px;
-    }
-    th {
-      background: #eee;
-    }
-  </style>
 </head>
 <body>
-
-  <h1>Excel Data Visualization Dashboard (From URL)</h1>
-
-  <div class="controls">
-    <label for="start">Start Date:</label>
-    <input type="date" id="startDate" />
-    <label for="end">End Date:</label>
-    <input type="date" id="endDate" />
-    <label for="groupFilter">Group:</label>
-    <select id="groupFilter">
-      <option value="">All</option>
-    </select>
-    <label for="engineerFilter">Engineer:</label>
-    <select id="engineerFilter">
+  <h1>Excel Data Dashboard</h1>
+  <div>
+    <label for="filter">Filter by Field (e.g. Status):</label>
+    <select id="filter">
       <option value="">All</option>
     </select>
   </div>
-
-  <canvas id="projectChart" width="600" height="300"></canvas>
-  <canvas id="groupEngineerChart" width="600" height="300"></canvas>
-  <canvas id="monthlyChart" width="600" height="300"></canvas>
-
-  <h2>Project Details</h2>
-  <table id="projectTable">
-    <thead>
-      <tr>
-        <th>Date</th>
-        <th>Group</th>
-        <th>Engineer</th>
-        <th>Project</th>
-        <th>Hours</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+  <canvas id="chart" width="600" height="400"></canvas>
 
   <script>
-    const EXCEL_URL = "https://script.googleusercontent.com/macros/echo?user_content_key=AehSKLi_mrh6CN8-3uFD-kyyvSRynnNDQHsYe67HQ-e8fs-45yKKFgx_jU-rsiEigT2j2vjjHPz_HA4JFLNUDKn8ZBpDzq57M9eQxnWsbPic5so1nvcYJkybY6H4vwhDPh68H8HnSo9IB14K36F2RPJDAAjJ1FXDkkFldrNYH6ewz0mrfcQ_tOjMfwApzgrP3JBvcYn1vTXJdUaDybqPqGeQ9ULY2fjdUZQWbJe_H6e5mmXyo9AltzjEkkyYCyNX8QAG43ZP1VdvroJsSsPdJWhb2gG8MlLFlccbITEm_ZGn&lib=MfiO_3z2Y8SaQfcuLd8CSm-45iJMEkhdC";
+    const sheetURL = "https://script.googleusercontent.com/macros/echo?user_content_key=AehSKLi_mrh6CN8-3uFD-kyyvSRynnNDQHsYe67HQ-e8fs-45yKKFgx_jU-rsiEigT2j2vjjHPz_HA4JFLNUDKn8ZBpDzq57M9eQxnWsbPic5so1nvcYJkybY6H4vwhDPh68H8HnSo9IB14K36F2RPJDAAjJ1FXDkkFldrNYH6ewz0mrfcQ_tOjMfwApzgrP3JBvcYn1vTXJdUaDybqPqGeQ9ULY2fjdUZQWbJe_H6e5mmXyo9AltzjEkkyYCyNX8QAG43ZP1VdvroJsSsPdJWhb2gG8MlLFlccbITEm_ZGn&lib=MfiO_3z2Y8SaQfcuLd8CSm-45iJMEkhdC";
 
+    const filterSelect = document.getElementById('filter');
+    const chartCanvas = document.getElementById('chart');
     let rawData = [];
+    let chart;
 
-    window.onload = () => {
-      fetch(EXCEL_URL)
-        .then(response => response.arrayBuffer())
-        .then(arrayBuffer => {
-          const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-          const sheetName = workbook.SheetNames[0];
-          const sheet = workbook.Sheets[sheetName];
-          rawData = XLSX.utils.sheet_to_json(sheet);
-          populateFilters(rawData);
-          filterAndDraw();
-        })
-        .catch(error => {
-          console.error("Error fetching or processing Excel file:", error);
-          alert("Failed to load data.");
-        });
-    };
+    async function fetchExcelData(url) {
+      const response = await fetch(url);
+      const arrayBuffer = await response.arrayBuffer();
+      const workbook = XLSX.read(arrayBuffer, { type: "array" });
+      const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+      const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+      return jsonData;
+    }
 
-    document.getElementById('startDate').addEventListener('change', filterAndDraw);
-    document.getElementById('endDate').addEventListener('change', filterAndDraw);
-    document.getElementById('groupFilter').addEventListener('change', filterAndDraw);
-    document.getElementById('engineerFilter').addEventListener('change', filterAndDraw);
-
-    function populateFilters(data) {
-      const groupSet = new Set();
-      const engineerSet = new Set();
-      data.forEach(row => {
-        groupSet.add(row.Group);
-        engineerSet.add(row.Engineer);
-      });
-
-      const groupSelect = document.getElementById('groupFilter');
-      const engineerSelect = document.getElementById('engineerFilter');
-
-      groupSelect.innerHTML = '<option value="">All</option>';
-      engineerSelect.innerHTML = '<option value="">All</option>';
-
-      [...groupSet].sort().forEach(group => {
-        const option = document.createElement('option');
-        option.value = option.textContent = group;
-        groupSelect.appendChild(option);
-      });
-
-      [...engineerSet].sort().forEach(engineer => {
-        const option = document.createElement('option');
-        option.value = option.textContent = engineer;
-        engineerSelect.appendChild(option);
+    function updateFilterOptions(data, field = "Status") {
+      const uniqueValues = [...new Set(data.map(item => item[field]))];
+      filterSelect.innerHTML = `<option value="">All</option>`;
+      uniqueValues.forEach(value => {
+        filterSelect.innerHTML += `<option value="${value}">${value}</option>`;
       });
     }
 
-    function filterAndDraw() {
-      const startDate = document.getElementById('startDate').value;
-      const endDate = document.getElementById('endDate').value;
-      const group = document.getElementById('groupFilter').value;
-      const engineer = document.getElementById('engineerFilter').value;
-
-      let filtered = rawData.filter(row => {
-        const date = new Date(parseExcelDate(row.Date));
-        const matchStart = !startDate || new Date(startDate) <= date;
-        const matchEnd = !endDate || new Date(endDate) >= date;
-        const matchGroup = !group || row.Group === group;
-        const matchEngineer = !engineer || row.Engineer === engineer;
-        return matchStart && matchEnd && matchGroup && matchEngineer;
-      });
-
-      drawCharts(filtered);
-      updateProjectDetailsTable(filtered);
+    function filterData(value, field = "Status") {
+      return value ? rawData.filter(item => item[field] === value) : rawData;
     }
 
-    function drawCharts(data) {
-      const projectTotals = {};
-      const groupEngineerTotals = {};
-      const monthlyTotals = {};
+    function renderChart(data, field = "Status") {
+      const counts = data.reduce((acc, item) => {
+        acc[item[field]] = (acc[item[field]] || 0) + 1;
+        return acc;
+      }, {});
+      const labels = Object.keys(counts);
+      const values = Object.values(counts);
 
-      data.forEach(row => {
-        const hours = parseFloat(row.Hours || 0);
-        const project = row.Project || 'Unknown';
-        const groupEngineer = `${row.Group || 'Unknown'} - ${row.Engineer || 'Unknown'}`;
-        const date = new Date(parseExcelDate(row.Date));
-        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-
-        projectTotals[project] = (projectTotals[project] || 0) + hours;
-        groupEngineerTotals[groupEngineer] = (groupEngineerTotals[groupEngineer] || 0) + hours;
-        monthlyTotals[monthKey] = (monthlyTotals[monthKey] || 0) + hours;
-      });
-
-      updateChart('projectChart', Object.keys(projectTotals), Object.values(projectTotals), 'Project Totals');
-      updateChart('groupEngineerChart', Object.keys(groupEngineerTotals), Object.values(groupEngineerTotals), 'Group/Engineer Totals');
-      updateChart('monthlyChart', Object.keys(monthlyTotals), Object.values(monthlyTotals), 'Monthly Hours', 'line');
-    }
-
-    function updateChart(chartId, labels, data, title, type = 'bar') {
-      const ctx = document.getElementById(chartId).getContext('2d');
-      if (window[chartId]) {
-        window[chartId].destroy();
-      }
-      window[chartId] = new Chart(ctx, {
-        type: type,
+      if (chart) chart.destroy();
+      chart = new Chart(chartCanvas, {
+        type: 'bar',
         data: {
-          labels: labels,
+          labels,
           datasets: [{
-            label: title,
-            data: data,
-            backgroundColor: type === 'bar' ? 'rgba(75, 192, 192, 0.6)' : undefined,
-            borderColor: type === 'line' ? 'rgba(75, 192, 192, 1)' : undefined,
-            fill: type !== 'line',
-            tension: 0.3
+            label: `Count by ${field}`,
+            data: values,
+            backgroundColor: 'rgba(54, 162, 235, 0.5)',
           }]
         },
         options: {
           responsive: true,
-          plugins: {
-            legend: { display: false },
-            title: { display: true, text: title }
-          },
           scales: {
             y: {
               beginAtZero: true
@@ -199,31 +76,17 @@
       });
     }
 
-    function parseExcelDate(excelDate) {
-      if (typeof excelDate === 'number') {
-        return new Date((excelDate - 25569) * 86400 * 1000);
-      } else if (typeof excelDate === 'string') {
-        return new Date(excelDate);
-      }
-      return new Date();
-    }
+    filterSelect.addEventListener("change", () => {
+      const filtered = filterData(filterSelect.value);
+      renderChart(filtered);
+    });
 
-    function updateProjectDetailsTable(data) {
-      const tbody = document.getElementById('projectTable').querySelector('tbody');
-      tbody.innerHTML = '';
-      data.forEach(row => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${new Date(parseExcelDate(row.Date)).toLocaleDateString()}</td>
-          <td>${row.Group || ''}</td>
-          <td>${row.Engineer || ''}</td>
-          <td>${row.Project || ''}</td>
-          <td>${row.Hours || 0}</td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
+    // Initial load
+    (async () => {
+      rawData = await fetchExcelData(sheetURL);
+      updateFilterOptions(rawData);
+      renderChart(rawData);
+    })();
   </script>
 </body>
 </html>
-
