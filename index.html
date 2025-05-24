@@ -1,249 +1,229 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8" />
-  <title>Submission Analyzer Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Excel Dashboard - Remote URL</title>
   <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      padding: 40px;
-      background: linear-gradient(to right, #6cdfee, #f1f8e9);
-      color: #333;
-      max-width: 1100px;
-      margin: auto;
-    }
-
-    h2 {
-      text-align: center;
-      color: #2c3e50;
-      margin-bottom: 30px;
-    }
-
-    .form-wrapper {
-      background: #fff;
-      padding: 25px 30px;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-      margin-bottom: 30px;
-    }
-
-    .form-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 20px;
-      margin-bottom: 20px;
-      align-items: flex-end;
-    }
-
-    .form-group {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      min-width: 200px;
-      margin-bottom: 20px;
-    }
-
-    label {
-      font-weight: 600;
-      margin-bottom: 6px;
-      color: #2c3e50;
-    }
-
-    select,
-    input[type="date"] {
-      padding: 10px 12px;
-      font-size: 14px;
-      border-radius: 8px;
-      border: 1px solid #ccc;
-      background-color: #fff;
-      transition: border 0.2s ease;
-    }
-
-    select:focus,
-    input:focus {
-      outline: none;
-      border-color: #007BFF;
-    }
-
-    button {
-      padding: 12px 20px;
-      background-color: #007BFF;
-      color: #fff;
-      font-size: 15px;
-      font-weight: bold;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: background-color 0.3s ease;
-    }
-
-    button:hover {
-      background-color: #0056b3;
-    }
-
-    canvas {
-      margin-bottom: 40px;
-      background: #fff;
+      font-family: Arial, sans-serif;
       padding: 20px;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      background: #f9f9f9;
     }
-
-    @media (max-width: 768px) {
-      .form-row {
-        flex-direction: column;
-      }
+    .controls {
+      margin-bottom: 20px;
     }
-
-    .toggle-btn {
-      padding: 10px 15px;
-      font-size: 14px;
-      font-weight: bold;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: background-color 0.3s ease, color 0.3s ease;
-      background-color: #f0f0f0;
-      color: #333;
-      margin-right: 10px;
+    canvas {
+      background: white;
+      border: 1px solid #ccc;
+      margin-bottom: 20px;
     }
-
-    .toggle-btn.active {
-      background-color: #4CAF50;
-      color: white;
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px;
+    }
+    th {
+      background: #eee;
     }
   </style>
 </head>
-
 <body>
-  <h2>📊 Project Submission Dashboard</h2>
 
-  <div class="form-wrapper">
-    <div class="form-row">
-      <div class="form-group">
-        <label for="analysisType">Analyze by:</label>
-        <select id="analysisType">
-          <option value="">-- Select --</option>
-          <option value="System Group">System Group</option>
-          <option value="Engineer">Engineer</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label for="projectSelect">Project:</label>
-        <select id="projectSelect">
-          <option value="All">All Projects</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label for="filterSelect">Specific:</label>
-        <select id="filterSelect">
-          <option value="All">All</option>
-        </select>
-      </div>
-    </div>
+  <h1>Excel Data Visualization Dashboard (From URL)</h1>
 
-    <div class="form-group">
-      <label>Date Field:</label>
-      <div id="dateToggleGroup">
-        <button type="button" class="toggle-btn active" data-value="Completed on">Completed on</button>
-        <button type="button" class="toggle-btn" data-value="Latest PDC">Latest PDC</button>
-      </div>
-    </div>
-    <input type="hidden" id="dateField" value="Completed on">
-
-    <div class="form-row">
-      <div class="form-group">
-        <label for="startDate">Start Date:</label>
-        <input type="date" id="startDate">
-      </div>
-
-      <div class="form-group">
-        <label for="endDate">End Date:</label>
-        <input type="date" id="endDate">
-      </div>
-
-      <div class="form-group">
-        <button onclick="filterAndDraw()">Analyze</button>
-      </div>
-    </div>
+  <div class="controls">
+    <label for="start">Start Date:</label>
+    <input type="date" id="startDate" />
+    <label for="end">End Date:</label>
+    <input type="date" id="endDate" />
+    <label for="groupFilter">Group:</label>
+    <select id="groupFilter">
+      <option value="">All</option>
+    </select>
+    <label for="engineerFilter">Engineer:</label>
+    <select id="engineerFilter">
+      <option value="">All</option>
+    </select>
   </div>
 
-  <h3>📁 Total Submissions by Project</h3>
-  <canvas id="barChartProjects" height="100"></canvas>
+  <canvas id="projectChart" width="600" height="300"></canvas>
+  <canvas id="groupEngineerChart" width="600" height="300"></canvas>
+  <canvas id="monthlyChart" width="600" height="300"></canvas>
 
-  <h3>📌 Filtered Submissions by Group/Engineer</h3>
-  <canvas id="barChartFiltered" height="100"></canvas>
-
-  <h3>📆 Monthly Trend</h3>
-  <canvas id="lineChartMonthly" height="100"></canvas>
-
-  <h3>📋 Project Details Table</h3>
-  <table id="projectDetailsTable" border="1" style="width:100%; border-collapse: collapse; margin-top:20px; display:none;">
-    <thead style="background-color:#007BFF; color:#fff;">
+  <h2>Project Details</h2>
+  <table id="projectTable">
+    <thead>
       <tr>
+        <th>Date</th>
+        <th>Group</th>
+        <th>Engineer</th>
         <th>Project</th>
-        <th>Building</th>
-        <th>Block</th>
-        <th>System Group</th>
-        <th>Drawing by</th>
-        <th>Design by</th>
-        <th>Latest PDC</th>
-        <th>Completed on</th>
+        <th>Hours</th>
       </tr>
     </thead>
     <tbody></tbody>
   </table>
 
-<script>
-  // ✅ Fix: Add the missing formatDate function
-  function formatDate(dateString) {
-    if (!dateString) return "";
-    const d = new Date(dateString);
-    return d.toISOString().split("T")[0]; // Output: 'YYYY-MM-DD'
-  }
+  <script>
+    const EXCEL_URL = "https://script.googleusercontent.com/macros/echo?user_content_key=AehSKLi_mrh6CN8-3uFD-kyyvSRynnNDQHsYe67HQ-e8fs-45yKKFgx_jU-rsiEigT2j2vjjHPz_HA4JFLNUDKn8ZBpDzq57M9eQxnWsbPic5so1nvcYJkybY6H4vwhDPh68H8HnSo9IB14K36F2RPJDAAjJ1FXDkkFldrNYH6ewz0mrfcQ_tOjMfwApzgrP3JBvcYn1vTXJdUaDybqPqGeQ9ULY2fjdUZQWbJe_H6e5mmXyo9AltzjEkkyYCyNX8QAG43ZP1VdvroJsSsPdJWhb2gG8MlLFlccbITEm_ZGn&lib=MfiO_3z2Y8SaQfcuLd8CSm-45iJMEkhdC";
 
-  let data = [];
-  let projectChart, filteredChart, lineChart;
+    let rawData = [];
 
-  window.onload = function () {
-    const urlParams = new URLSearchParams(window.location.search);
-    const sheetURL = urlParams.get("sheet");
+    window.onload = () => {
+      fetch(EXCEL_URL)
+        .then(response => response.arrayBuffer())
+        .then(arrayBuffer => {
+          const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+          const sheetName = workbook.SheetNames[0];
+          const sheet = workbook.Sheets[sheetName];
+          rawData = XLSX.utils.sheet_to_json(sheet);
+          populateFilters(rawData);
+          filterAndDraw();
+        })
+        .catch(error => {
+          console.error("Error fetching or processing Excel file:", error);
+          alert("Failed to load data.");
+        });
+    };
 
-    if (!sheetURL) {
-      alert("Missing ?sheet= URL. Please pass your Apps Script Web App URL.");
-      return;
+    document.getElementById('startDate').addEventListener('change', filterAndDraw);
+    document.getElementById('endDate').addEventListener('change', filterAndDraw);
+    document.getElementById('groupFilter').addEventListener('change', filterAndDraw);
+    document.getElementById('engineerFilter').addEventListener('change', filterAndDraw);
+
+    function populateFilters(data) {
+      const groupSet = new Set();
+      const engineerSet = new Set();
+      data.forEach(row => {
+        groupSet.add(row.Group);
+        engineerSet.add(row.Engineer);
+      });
+
+      const groupSelect = document.getElementById('groupFilter');
+      const engineerSelect = document.getElementById('engineerFilter');
+
+      groupSelect.innerHTML = '<option value="">All</option>';
+      engineerSelect.innerHTML = '<option value="">All</option>';
+
+      [...groupSet].sort().forEach(group => {
+        const option = document.createElement('option');
+        option.value = option.textContent = group;
+        groupSelect.appendChild(option);
+      });
+
+      [...engineerSet].sort().forEach(engineer => {
+        const option = document.createElement('option');
+        option.value = option.textContent = engineer;
+        engineerSelect.appendChild(option);
+      });
     }
 
-    fetch(sheetURL)
-      .then(res => res.json())
-      .then(array => {
-        const [headers, ...rows] = array;
-        data = rows.map(row => {
-          const obj = {};
-          headers.forEach((h, i) => obj[h] = row[i]);
-          return obj;
-        });
+    function filterAndDraw() {
+      const startDate = document.getElementById('startDate').value;
+      const endDate = document.getElementById('endDate').value;
+      const group = document.getElementById('groupFilter').value;
+      const engineer = document.getElementById('engineerFilter').value;
 
-        data = data.map(row => ({
-          ...row,
-          "Latest PDC": row["Latest PDC"] ? formatDate(row["Latest PDC"]) : "",
-          "Completed on": row["Completed on"] ? formatDate(row["Completed on"]) : ""
-        }));
-
-        drawInitialProjectChart();
-        updateFilterSelect();
-        updateProjectDetailsTable(data);
-      })
-      .catch(err => {
-        console.error("Failed to fetch sheet data:", err);
-        alert("Failed to load data from Google Sheet.");
+      let filtered = rawData.filter(row => {
+        const date = new Date(parseExcelDate(row.Date));
+        const matchStart = !startDate || new Date(startDate) <= date;
+        const matchEnd = !endDate || new Date(endDate) >= date;
+        const matchGroup = !group || row.Group === group;
+        const matchEngineer = !engineer || row.Engineer === engineer;
+        return matchStart && matchEnd && matchGroup && matchEngineer;
       });
-  };
-</script>
 
+      drawCharts(filtered);
+      updateProjectDetailsTable(filtered);
+    }
 
+    function drawCharts(data) {
+      const projectTotals = {};
+      const groupEngineerTotals = {};
+      const monthlyTotals = {};
+
+      data.forEach(row => {
+        const hours = parseFloat(row.Hours || 0);
+        const project = row.Project || 'Unknown';
+        const groupEngineer = `${row.Group || 'Unknown'} - ${row.Engineer || 'Unknown'}`;
+        const date = new Date(parseExcelDate(row.Date));
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+
+        projectTotals[project] = (projectTotals[project] || 0) + hours;
+        groupEngineerTotals[groupEngineer] = (groupEngineerTotals[groupEngineer] || 0) + hours;
+        monthlyTotals[monthKey] = (monthlyTotals[monthKey] || 0) + hours;
+      });
+
+      updateChart('projectChart', Object.keys(projectTotals), Object.values(projectTotals), 'Project Totals');
+      updateChart('groupEngineerChart', Object.keys(groupEngineerTotals), Object.values(groupEngineerTotals), 'Group/Engineer Totals');
+      updateChart('monthlyChart', Object.keys(monthlyTotals), Object.values(monthlyTotals), 'Monthly Hours', 'line');
+    }
+
+    function updateChart(chartId, labels, data, title, type = 'bar') {
+      const ctx = document.getElementById(chartId).getContext('2d');
+      if (window[chartId]) {
+        window[chartId].destroy();
+      }
+      window[chartId] = new Chart(ctx, {
+        type: type,
+        data: {
+          labels: labels,
+          datasets: [{
+            label: title,
+            data: data,
+            backgroundColor: type === 'bar' ? 'rgba(75, 192, 192, 0.6)' : undefined,
+            borderColor: type === 'line' ? 'rgba(75, 192, 192, 1)' : undefined,
+            fill: type !== 'line',
+            tension: 0.3
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            title: { display: true, text: title }
+          },
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+    }
+
+    function parseExcelDate(excelDate) {
+      if (typeof excelDate === 'number') {
+        return new Date((excelDate - 25569) * 86400 * 1000);
+      } else if (typeof excelDate === 'string') {
+        return new Date(excelDate);
+      }
+      return new Date();
+    }
+
+    function updateProjectDetailsTable(data) {
+      const tbody = document.getElementById('projectTable').querySelector('tbody');
+      tbody.innerHTML = '';
+      data.forEach(row => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${new Date(parseExcelDate(row.Date)).toLocaleDateString()}</td>
+          <td>${row.Group || ''}</td>
+          <td>${row.Engineer || ''}</td>
+          <td>${row.Project || ''}</td>
+          <td>${row.Hours || 0}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+  </script>
 </body>
 </html>
+
