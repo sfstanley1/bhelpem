@@ -1,92 +1,612 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Excel Data Dashboard</title>
-  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-</head>
-<body>
-  <h1>Excel Data Dashboard</h1>
-  <div>
-    <label for="filter">Filter by Field (e.g. Status):</label>
-    <select id="filter">
-      <option value="">All</option>
-    </select>
-  </div>
-  <canvas id="chart" width="600" height="400"></canvas>
-
-  <script>
-    const sheetURL = "https://script.googleusercontent.com/macros/echo?user_content_key=AehSKLi_mrh6CN8-3uFD-kyyvSRynnNDQHsYe67HQ-e8fs-45yKKFgx_jU-rsiEigT2j2vjjHPz_HA4JFLNUDKn8ZBpDzq57M9eQxnWsbPic5so1nvcYJkybY6H4vwhDPh68H8HnSo9IB14K36F2RPJDAAjJ1FXDkkFldrNYH6ewz0mrfcQ_tOjMfwApzgrP3JBvcYn1vTXJdUaDybqPqGeQ9ULY2fjdUZQWbJe_H6e5mmXyo9AltzjEkkyYCyNX8QAG43ZP1VdvroJsSsPdJWhb2gG8MlLFlccbITEm_ZGn&lib=MfiO_3z2Y8SaQfcuLd8CSm-45iJMEkhdC";
-
-    const filterSelect = document.getElementById('filter');
-    const chartCanvas = document.getElementById('chart');
-    let rawData = [];
-    let chart;
-
-    async function fetchExcelData(url) {
-      const response = await fetch(url);
-      const arrayBuffer = await response.arrayBuffer();
-      const workbook = XLSX.read(arrayBuffer, { type: "array" });
-      const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-      const jsonData = XLSX.utils.sheet_to_json(firstSheet);
-      return jsonData;
-    }
-
-    function updateFilterOptions(data, field = "Status") {
-      const uniqueValues = [...new Set(data.map(item => item[field]))];
-      filterSelect.innerHTML = `<option value="">All</option>`;
-      uniqueValues.forEach(value => {
-        filterSelect.innerHTML += `<option value="${value}">${value}</option>`;
-      });
-    }
-
-    function filterData(value, field = "Status") {
-      return value ? rawData.filter(item => item[field] === value) : rawData;
-    }
-
-    function renderChart(data, field = "Status") {
-      const counts = data.reduce((acc, item) => {
-        acc[item[field]] = (acc[item[field]] || 0) + 1;
-        return acc;
-      }, {});
-      const labels = Object.keys(counts);
-      const values = Object.values(counts);
-
-      if (chart) chart.destroy();
-      chart = new Chart(chartCanvas, {
-        type: 'bar',
-        data: {
-          labels,
-          datasets: [{
-            label: `Count by ${field}`,
-            data: values,
-            backgroundColor: 'rgba(54, 162, 235, 0.5)',
-          }]
-        },
-        options: {
-          responsive: true,
-          scales: {
-            y: {
-              beginAtZero: true
-            }
-          }
+  <head>
+    <meta charset="UTF-8" />
+    <title>Submission Analyzer Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        padding: 40px;
+        background: linear-gradient(to right, #6cdfee, #f1f8e9);
+        color: #333;
+        max-width: 1100px;
+        margin: auto;
+      }
+      h2 {
+        text-align: center;
+        color: #2c3e50;
+        margin-bottom: 30px;
+      }
+      .form-wrapper {
+        background: #fff;
+        padding: 25px 30px;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        margin-bottom: 30px;
+      }
+      .form-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
+        margin-bottom: 20px;
+        align-items: flex-end;
+      }
+      .form-group {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 200px;
+        margin-bottom: 20px;
+      }
+      label {
+        font-weight: 600;
+        margin-bottom: 6px;
+        color: #2c3e50;
+      }
+      select,
+      input[type="date"] {
+        padding: 10px 12px;
+        font-size: 14px;
+        border-radius: 8px;
+        border: 1px solid #ccc;
+        background-color: #fff;
+        transition: border 0.2s ease;
+      }
+      select:focus,
+      input:focus {
+        outline: none;
+        border-color: #007bff;
+      }
+      button {
+        padding: 12px 20px;
+        background-color: #007bff;
+        color: #fff;
+        font-size: 15px;
+        font-weight: bold;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+      }
+      button:hover {
+        background-color: #0056b3;
+      }
+      button:active {
+        background-color: #0056b3;
+        transform: scale(0.98);
+      }
+      canvas {
+        margin-bottom: 40px;
+        background: #fff;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      }
+      @media (max-width: 768px) {
+        .form-row {
+          flex-direction: column;
         }
+      }
+      .toggle-btn {
+        padding: 10px 15px;
+        font-size: 14px;
+        font-weight: bold;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background-color 0.3s ease, color 0.3s ease;
+        background-color: #f0f0f0;
+        color: #333;
+        margin-right: 10px;
+      }
+      .toggle-btn.active {
+        background-color: #4caf50;
+        color: white;
+      }
+      #loaderOverlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgb(70 65 65 / 90%);
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .loaderContent {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .spinner {
+        width: 60px;
+        height: 60px;
+        border: 6px solid rgba(255, 255, 255, 0.2);
+        border-top: 6px solid #0063d4;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-bottom: 16px;
+      }
+
+      .loadingText {
+        font-size: 18px;
+        color: #ffffff;
+        font-family: "Segoe UI", sans-serif;
+        text-align: center;
+        text-decoration: solid;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <h2>📊 Project Submission Dashboard</h2>
+    <div id="loaderOverlay">
+      <div class="loaderContent">
+        <div class="spinner"></div>
+        <div class="loadingText">Loading data…</div>
+      </div>
+    </div>
+    <div class="form-wrapper">
+      <div class="form-row">
+        <div class="form-group">
+          <label for="analysisType">Analyze by:</label>
+          <select id="analysisType">
+            <option value="">-- Select --</option>
+            <option value="System Group">System Group</option>
+            <option value="Engineer">Engineer</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="projectSelect">Project:</label>
+          <select id="projectSelect">
+            <option value="All">All Projects</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="filterSelect">Specific:</label>
+          <select id="filterSelect">
+            <option value="All">All</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Date Field:</label>
+        <div id="dateToggleGroup">
+          <button
+            type="button"
+            class="toggle-btn active"
+            data-value="Completed on"
+          >
+            Completed on
+          </button>
+          <button type="button" class="toggle-btn" data-value="Latest PDC">
+            Latest PDC
+          </button>
+        </div>
+      </div>
+      <input type="hidden" id="dateField" value="Completed on" />
+      <div class="form-row">
+        <div class="form-group">
+          <label for="startDate">Start Date:</label>
+          <input type="date" id="startDate" />
+        </div>
+        <div class="form-group">
+          <label for="endDate">End Date:</label>
+          <input type="date" id="endDate" />
+        </div>
+        <div class="form-group">
+          <button onclick="filterAndDraw()">Analyze</button>
+        </div>
+      </div>
+    </div>
+
+    <h3>📁 Total Submissions by Project</h3>
+    <canvas id="barChartProjects" height="100"></canvas>
+    <h3>📌 Filtered Submissions by Group/Engineer</h3>
+    <canvas id="barChartFiltered" height="100"></canvas>
+    <h3>📆 Monthly Trend</h3>
+    <canvas id="lineChartMonthly" height="100"></canvas>
+    <h3>📋 Project Details Table</h3>
+    <table
+      id="projectDetailsTable"
+      border="1"
+      style="
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+        display: none;
+      "
+    >
+      <thead style="background-color: #007bff; color: #fff">
+        <tr>
+          <th>Project</th>
+          <th>Building</th>
+          <th>Block</th>
+          <th>System Group</th>
+          <th>Drawing by</th>
+          <th>Design by</th>
+          <th>Latest PDC</th>
+          <th>Completed on</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <script>
+      let data = [];
+      let mappedData = [];
+      let projectChart, filteredChart, lineChart;
+
+      async function loadDataAndRender() {
+        const loader = document.getElementById("loaderOverlay");
+        loader.style.display = "flex";
+        try {
+          const response = await fetch(
+            "https://script.google.com/macros/s/AKfycbwSwPnG7-zfLB7hizEQVFz80NayhdapyhtGGb8G8s2SmattFj5WUtELR1oF0vYlZA6DPg/exec"
+          );
+          data = await response.json();
+          const keys = data[0];
+          mappedData = data.slice(1).map((row) => {
+            const obj = {};
+            keys.forEach((key, index) => {
+              const value = row[index];
+              if (
+                key &&
+                value !== "" &&
+                value !== null &&
+                value !== undefined
+              ) {
+                obj[key] = value;
+              }
+            });
+            return obj;
+          });
+
+          mappedData = mappedData.map((row) => ({
+            ...row,
+            "Latest PDC": row["Latest PDC"]
+              ? formatDate(row["Latest PDC"])
+              : "",
+            "Completed on": row["Completed on"]
+              ? formatDate(row["Completed on"])
+              : "",
+          }));
+
+          const projectSet = new Set(mappedData.map((row) => row["Projects"]));
+          const projectSelect = document.getElementById("projectSelect");
+          projectSelect.innerHTML = '<option value="All">All Projects</option>';
+          projectSet.forEach((proj) => {
+            const opt = document.createElement("option");
+            opt.value = proj;
+            opt.textContent = proj;
+            projectSelect.appendChild(opt);
+          });
+
+          drawInitialProjectChart();
+          updateFilterSelect();
+          updateProjectDetailsTable(mappedData);
+        } catch (err) {
+          alert("Failed to load data. Please check the URL.");
+          console.error(err);
+        } finally {
+          loader.style.display = "none";
+        }
+      }
+
+      document.addEventListener("DOMContentLoaded", function () {
+        loadDataAndRender();
+        setInterval(loadDataAndRender, 5 * 60 * 1000);
+
+        document
+          .getElementById("analysisType")
+          .addEventListener("change", updateFilterSelect);
+        document
+          .getElementById("projectSelect")
+          .addEventListener("change", updateFilterSelect);
+
+        document
+          .getElementById("dateToggleGroup")
+          .addEventListener("click", function (event) {
+            if (event.target.classList.contains("toggle-btn")) {
+              const buttons = this.querySelectorAll(".toggle-btn");
+              buttons.forEach((button) => button.classList.remove("active"));
+              event.target.classList.add("active");
+              document.getElementById("dateField").value =
+                event.target.getAttribute("data-value");
+              filterAndDraw();
+            }
+          });
       });
-    }
 
-    filterSelect.addEventListener("change", () => {
-      const filtered = filterData(filterSelect.value);
-      renderChart(filtered);
-    });
+      function formatDate(dateValue) {
+        const d = new Date(dateValue);
+        if (isNaN(d)) return "";
+        const day = String(d.getDate()).padStart(2, "0");
+        const month = String(d.getMonth() + 1).padStart(2, "0");
+        const year = d.getFullYear();
+        return `${day}/${month}/${year}`;
+      }
 
-    // Initial load
-    (async () => {
-      rawData = await fetchExcelData(sheetURL);
-      updateFilterOptions(rawData);
-      renderChart(rawData);
-    })();
-  </script>
-</body>
+      function drawInitialProjectChart() {
+        const counts = {};
+        mappedData.forEach((row) => {
+          const proj = row["Projects"];
+          if (!proj) return;
+          counts[proj] = (counts[proj] || 0) + 1;
+        });
+
+        const labels = Object.keys(counts);
+        const values = Object.values(counts);
+
+        if (projectChart) projectChart.destroy();
+
+        const ctx = document
+          .getElementById("barChartProjects")
+          .getContext("2d");
+        projectChart = new Chart(ctx, {
+          type: "bar",
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: "Total Submissions",
+                data: values,
+                backgroundColor: "rgba(54, 162, 235, 0.6)",
+              },
+            ],
+          },
+        });
+      }
+
+      function updateProjectDetailsTable(filteredRows) {
+        const table = document.getElementById("projectDetailsTable");
+        const tbody = table.querySelector("tbody");
+        tbody.innerHTML = "";
+
+        if (!filteredRows || filteredRows.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;">No data found for selected filters.</td></tr>`;
+          table.style.display = "table";
+          return;
+        }
+        filteredRows.forEach((row) => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+                    <td>${row["Projects"] || ""}</td>
+                    <td>${row["Building"] || ""}</td>
+                    <td>${row["Block"] || ""}</td>
+                    <td>${row["System Group"] || ""}</td>
+                    <td>${row["Drawing by"] || ""}</td>
+                    <td>${row["Design by"] || ""}</td>
+                    <td>${row["Latest PDC"] || ""}</td>
+                    <td>${row["Completed on"] || ""}</td>
+                `;
+          tbody.appendChild(tr);
+        });
+
+        table.style.display = "table";
+      }
+
+      function updateFilterSelect() {
+        const analysisType = document.getElementById("analysisType").value;
+        const selectedProject = document.getElementById("projectSelect").value;
+        const filterSelect = document.getElementById("filterSelect");
+
+        filterSelect.innerHTML = '<option value="All">All</option>';
+
+        const fieldList =
+          analysisType === "Engineer"
+            ? ["Design by", "Drawing by"]
+            : ["System Group"];
+
+        const filteredRows =
+          selectedProject === "All"
+            ? mappedData
+            : mappedData.filter((row) => row["Projects"] === selectedProject);
+
+        const valuesSet = new Set();
+
+        filteredRows.forEach((row) => {
+          fieldList.forEach((field) => {
+            const val = row[field];
+            if (val && val.toString().trim() !== "") {
+              valuesSet.add(val);
+            }
+          });
+        });
+
+        [...valuesSet].sort().forEach((val) => {
+          const opt = document.createElement("option");
+          opt.value = val;
+          opt.textContent = val;
+          filterSelect.appendChild(opt);
+        });
+      }
+
+      function filterAndDraw() {
+        if (!mappedData || mappedData.length === 0) {
+          alert("Please upload a valid Excel file first.");
+          return;
+        }
+
+        const type = document.getElementById("analysisType").value;
+        if (type !== "Engineer" && type !== "System Group") {
+          alert("Please select a valid analysis type.");
+          return;
+        }
+
+        const project = document.getElementById("projectSelect").value;
+        const selected = document.getElementById("filterSelect").value;
+        const startDate = document.getElementById("startDate").value
+          ? new Date(document.getElementById("startDate").value)
+          : null;
+        const endDate = document.getElementById("endDate").value
+          ? new Date(document.getElementById("endDate").value)
+          : null;
+        const dateField = document.getElementById("dateField").value;
+        const filteredDataForCharts = mappedData.filter((row) => {
+          const projMatch = project === "All" || row["Projects"] === project;
+          const dateString = row[dateField];
+          const date = convertStringToDate(dateString);
+
+          const itemMatch =
+            selected === "All" ||
+            (type === "Engineer"
+              ? row["Design by"] === selected || row["Drawing by"] === selected
+              : row["System Group"] === selected);
+          const dateMatch =
+            (!startDate || (date && date >= startDate)) &&
+            (!endDate || (date && date <= endDate));
+
+          return projMatch && itemMatch && dateMatch;
+        });
+
+        const counts = {};
+        const monthly = {};
+
+        filteredDataForCharts.forEach((row) => {
+          const proj = row["Projects"];
+          const dateString = row[dateField];
+          const date = convertStringToDate(dateString);
+
+          if (!date) return;
+
+          let people = [];
+          if (type === "Engineer") {
+            if (row["Design by"]) people.push(row["Design by"]);
+            if (row["Drawing by"]) people.push(row["Drawing by"]);
+          } else {
+            if (row["System Group"]) people.push(row["System Group"]);
+          }
+
+          people.forEach((person) => {
+            if (!person || (selected !== "All" && person !== selected)) return;
+
+            counts[person] = (counts[person] || 0) + 1;
+
+            const key = `${String(date.getMonth() + 1).padStart(
+              2,
+              "0"
+            )}/${date.getFullYear()}`;
+            if (!monthly[person]) monthly[person] = {};
+            monthly[person][key] = (monthly[person][key] || 0) + 1;
+          });
+        });
+
+        // Update the project details table with the filtered data
+        const filteredDataForTable = mappedData.filter((row) => {
+          const projMatch = project === "All" || row["Projects"] === project;
+          const dateString = row[dateField];
+          const date = convertStringToDate(dateString);
+          const itemMatch =
+            selected === "All" ||
+            (type === "Engineer"
+              ? row["Design by"] === selected || row["Drawing by"] === selected
+              : row["System Group"] === selected);
+          const dateMatch =
+            (!startDate || (date && date >= startDate)) &&
+            (!endDate || (date && date <= endDate));
+          return projMatch && itemMatch && dateMatch;
+        });
+        updateProjectDetailsTable(filteredDataForTable);
+
+        // Clear old charts
+        if (filteredChart) filteredChart.destroy();
+        if (lineChart) lineChart.destroy();
+
+        const countLabels = Object.keys(counts);
+        const countValues = Object.values(counts);
+
+        if (countLabels.length === 0) {
+          document
+            .getElementById("barChartFiltered")
+            .getContext("2d")
+            .clearRect(0, 0, 400, 200);
+          document
+            .getElementById("lineChartMonthly")
+            .getContext("2d")
+            .clearRect(0, 0, 400, 200);
+          return; // No data to draw charts
+        }
+
+        // Draw bar chart
+        const ctx1 = document
+          .getElementById("barChartFiltered")
+          .getContext("2d");
+        filteredChart = new Chart(ctx1, {
+          type: "bar",
+          data: {
+            labels: countLabels,
+            datasets: [
+              {
+                label: `${type} Submissions`,
+                data: countValues,
+                backgroundColor: "rgba(255, 159, 64, 0.6)",
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+          },
+        });
+
+        // Draw line chart
+        const allMonthsSet = new Set();
+        for (const person in monthly) {
+          Object.keys(monthly[person]).forEach((m) => allMonthsSet.add(m));
+        }
+
+        const allMonths = [...allMonthsSet].sort((a, b) => {
+          const [ma, ya] = a.split("/").map(Number);
+          const [mb, yb] = b.split("/").map(Number);
+          return ya !== yb ? ya - yb : ma - mb;
+        });
+
+        const datasets = [];
+        for (const person in monthly) {
+          const values = allMonths.map((m) => monthly[person][m] || 0);
+          datasets.push({
+            label: person,
+            data: values,
+            fill: false,
+            tension: 0.3,
+            borderWidth: 2,
+            borderColor: randomColorForString(person),
+            pointRadius: 3,
+          });
+        }
+
+        const ctx2 = document
+          .getElementById("lineChartMonthly")
+          .getContext("2d");
+        lineChart = new Chart(ctx2, {
+          type: "line",
+          data: { labels: allMonths, datasets: datasets },
+          options: { responsive: true, scales: { y: { beginAtZero: true } } },
+        });
+      }
+      function randomColorForString(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+          hash = str.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        return `hsl(${hash % 360}, 70%, 50%)`;
+      }
+      function convertStringToDate(dateString) {
+        const [day, month, year] = dateString.split("/").map(Number);
+        return new Date(year, month - 1, day);
+      }
+    </script>
+  </body>
 </html>
